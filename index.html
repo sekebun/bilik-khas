@@ -174,25 +174,58 @@
         };
 
         /************************************************************
-         * 3. SERVICES
+         * 3. SERVICES (UPDATED FOR CLOUD SYNC)
          ************************************************************/
         const STORAGE_KEY = 'sktk_bookings_v1';
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw9QK_nyzSMLOzxUX1pGe58jD3JGI-noqpEVJIOsK0LPqnN8fNN0q_pOBTq8NvKetjU/exec"; 
 
-        const getBookings = () => {
-          const stored = localStorage.getItem(STORAGE_KEY);
-          return stored ? JSON.parse(stored) : [];
+        // Fungsi baru untuk menarik data dari Google Sheet
+        const fetchBookings = async () => {
+          if (!GOOGLE_SCRIPT_URL) return [];
+          
+          try {
+            // Tambah parameter 'action=read' dan timestamp untuk elak cache browser
+            const url = `${GOOGLE_SCRIPT_URL}?action=read&t=${Date.now()}`;
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                // 'omit' menghalang penghantaran cookies, mengelakkan isu redirect login Google (CORS)
+                credentials: 'omit',
+                redirect: 'follow'
+            });
+            
+            if (!response.ok) {
+              throw new Error("Gagal menyambung ke server");
+            }
+            
+            const data = await response.json();
+            
+            // Simpan copy dalam local storage sebagai cache
+            if (Array.isArray(data)) {
+               localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+               return data;
+            } else {
+               return [];
+            }
+
+          } catch (e) {
+            console.error("Error fetching data, using offline backup:", e);
+            // Jika gagal (tiada internet), guna local storage
+            const stored = localStorage.getItem(STORAGE_KEY);
+            return stored ? JSON.parse(stored) : [];
+          }
         };
 
         const saveBooking = async (booking) => {
-          // 1. Local Storage
-          const currentBookings = getBookings();
+          // 1. Simpan Optimistik (Tunjuk terus dalam jadual supaya user tak tunggu)
+          const currentBookings = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
           const updatedBookings = [...currentBookings, booking];
           localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedBookings));
 
-          // 2. Google Sheets
+          // 2. Hantar ke Google Sheets
           if (GOOGLE_SCRIPT_URL) {
             try {
+              // POST request dengan 'no-cors' untuk fire-and-forget
               await fetch(GOOGLE_SCRIPT_URL, {
                 method: 'POST',
                 mode: 'no-cors', 
@@ -202,17 +235,18 @@
                 body: JSON.stringify(booking),
               });
               console.log("Data berjaya dihantar ke Google Sheet");
+              return true;
             } catch (e) {
               console.error("Gagal menyambung ke Google Sheet", e);
+              // Masih return true sebab dah simpan local
+              return true;
             }
-          } else {
-            console.warn("URL Google Sheet belum dimasukkan.");
-          }
+          } 
           return true;
         };
 
         /************************************************************
-         * 4. ICONS (Lucide Replacements)
+         * 4. ICONS
          ************************************************************/
         const Icon = ({ children, className }) => (
           <svg 
@@ -264,11 +298,19 @@
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
           </Icon>
         );
+        const RefreshCwIcon = ({ className }) => (
+          <Icon className={className}>
+            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+            <path d="M21 3v5h-5" />
+            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+            <path d="M8 16H3v5" />
+          </Icon>
+        );
 
         /************************************************************
          * 5. COMPONENTS
          ************************************************************/
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
 
         const Header = () => {
           return (
@@ -423,16 +465,19 @@
           const [teacherName, setTeacherName] = useState('');
           const [subject, setSubject] = useState('');
           const [error, setError] = useState('');
+          const [isSubmitting, setIsSubmitting] = useState(false);
 
           if (!isOpen || !selectedDay || !selectedSlot) return null;
 
-          const handleSubmit = (e) => {
+          const handleSubmit = async (e) => {
             e.preventDefault();
             if (!className || !teacherName || !subject) {
               setError("Sila lengkapkan Nama Kelas, Guru dan Subjek.");
               return;
             }
-            onSubmit({ className, teacherName, subject });
+            setIsSubmitting(true);
+            await onSubmit({ className, teacherName, subject });
+            setIsSubmitting(false);
             setClassName('');
             setTeacherName('');
             setSubject('');
@@ -528,9 +573,14 @@
 
                   <button
                     type="submit"
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 active:scale-95 mt-4"
+                    disabled={isSubmitting}
+                    className={`w-full text-white font-bold py-3 rounded-lg shadow-lg transition-all transform mt-4 flex justify-center items-center ${
+                      isSubmitting 
+                      ? 'bg-blue-400 cursor-wait' 
+                      : 'bg-blue-600 hover:bg-blue-700 hover:-translate-y-0.5 active:scale-95'
+                    }`}
                   >
-                    Sahkan Tempahan
+                    {isSubmitting ? 'Sedang Menyimpan...' : 'Sahkan Tempahan'}
                   </button>
                 </form>
               </div>
@@ -550,16 +600,36 @@
           const [isModalOpen, setIsModalOpen] = useState(false);
           const [selectedDay, setSelectedDay] = useState(null);
           const [selectedSlot, setSelectedSlot] = useState(null);
+          const [isLoading, setIsLoading] = useState(true);
+          const initialLoadDone = useRef(false);
 
           useEffect(() => {
             const days = getWeekDays(referenceDate);
             setWeekDays(days);
           }, [referenceDate]);
 
+          // Load bookings initially and refresh every 10 seconds
           useEffect(() => {
-            const storedBookings = getBookings();
-            setBookings(storedBookings);
-          }, []);
+            const loadData = async (isBackground = false) => {
+              if (!initialLoadDone.current && !isBackground) {
+                setIsLoading(true);
+              }
+              
+              const fetchedData = await fetchBookings();
+              setBookings(fetchedData);
+              
+              if (!initialLoadDone.current) {
+                setIsLoading(false);
+                initialLoadDone.current = true;
+              }
+            };
+
+            loadData();
+            
+            // Auto Refresh every 10 seconds
+            const interval = setInterval(() => loadData(true), 10000);
+            return () => clearInterval(interval);
+          }, []); 
 
           const handleSlotClick = (day, slot) => {
             setSelectedDay(day);
@@ -581,12 +651,22 @@
               timestamp: Date.now()
             };
 
+            // Update UI immediately (Optimistic)
+            setBookings(prev => [...prev, newBooking]);
+            setIsModalOpen(false);
+
+            // Save to backend
             const success = await saveBooking(newBooking);
+            
+            // Re-fetch to ensure sync after save
             if (success) {
-              setBookings(prev => [...prev, newBooking]);
-              setIsModalOpen(false);
+               // Short delay to ensure sheet updates
+               setTimeout(async () => {
+                 const freshData = await fetchBookings();
+                 setBookings(freshData);
+               }, 1000);
             } else {
-              alert("Ralat menyimpan tempahan.");
+              alert("Amaran: Terdapat ralat rangkaian. Tempahan disimpan di peranti ini sahaja.");
             }
           };
 
@@ -668,6 +748,12 @@
                   </div>
 
                   <div className="flex items-center gap-4">
+                     {/* Live Indicator */}
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-900/40 border border-blue-500/20">
+                      <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-yellow-400' : 'bg-green-400'} animate-pulse`}></div>
+                      <span className="text-xs text-blue-200">{isLoading ? 'Mengemaskini...' : 'Online'}</span>
+                    </div>
+
                     {!isCurrentWeek && (
                        <button 
                          onClick={handleResetToCurrent}
