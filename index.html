@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sistem Tempahan SKTK</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel Standalone -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+      /* Custom Animations */
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      .animate-fadeIn {
+        animation: fadeIn 0.3s ease-in-out;
+      }
+      @keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+      .animate-slideUp {
+        animation: slideUp 0.3s ease-out;
+      }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0"
+  }
+}
+</script>
+</head>
+<body class="bg-blue-950 text-slate-100 antialiased">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        /************************************************************
+         * 1. CONSTANTS
+         ************************************************************/
+        const CLASS_LIST = [
+          "1 AL-IKHLAS", "1 AL-FALAQ", "1 AN-NAS",
+          "2 AL-IKHLAS", "2 AL-FALAQ", "2 AN-NAS",
+          "3 AL-IKHLAS", "3 AL-FALAQ",
+          "4 AL-IKHLAS", "4 AL-FALAQ", "4 AN-NAS",
+          "5 AL-IKHLAS", "5 AL-FALAQ",
+          "6 AL-IKHLAS", "6 AL-FALAQ", "6 AN-NAS"
+        ];
+
+        const TEACHER_LIST = [
+          "NOR EAZAH BINTI ITHNIN",
+          "SITI SANISAH BINTI HUSAIN",
+          "FARIDAH BINTI HAMZAH",
+          "MAZIAH BINTI MUHAMMAD",
+          "AMIRUL FAHMI BIN YUSUP",
+          "AQEELA BINTI ALIAH",
+          "ELIANE BINTI AZMI",
+          "EMYLIA FARHAN BINTI MOHAMAD YUSOF",
+          "FALIZAH BINTI MOHAMAD ARSHAD",
+          "HAYATI BINTI RAMLI",
+          "IDAHTUL ARRSHYUL NA’AIEM BINTI ABDUL RAHMAN",
+          "KHAIRUL HAFFIZ BIN AZIZAN",
+          "MAHANUM BINTI MOKHTAR",
+          "MAZNAH BINTI KAMARUDDIN",
+          "MOHD MUZAMER BIN ZAINODDIN",
+          "MOHD ZAHARI BIN ISHAK",
+          "MUHAMAD ANAS BIN MOHD AMRAN",
+          "NADHATUL AKMA BINTI ZAINAL",
+          "NAIMAH BINTI MOHD NOH",
+          "NOOR HAFIZAH BINTI OTHMAN",
+          "NOORSUZANA BINTI NORDIN",
+          "NOR AZIDAH BINTI MOHAMAD",
+          "NOR MAIZANNI BINTI KHALIDI",
+          "NORAIN BINTI ISMAIL",
+          "NORYANA BINTI ABDUL RAZAK",
+          "NORZITA BINTI MAKHTAR",
+          "NURUL ASHIKIN BINTI KHALIDI",
+          "NURUL HUSNA BINTI ISMAIL",
+          "NURUL SYAZWANI BINTI MD BASRI",
+          "ROHAIDA BINTI MD ALI",
+          "ROHAYA BINTI IBERAHIM",
+          "ROSLAN BIN IBRAHIM",
+          "ROZAINI BT TAJON AROS",
+          "SITI BALQIS BINTI ABDUL RAJI",
+          "SITI MARHAMAH BINTI MUHAMMAD",
+          "SITI ZAHARAH BINTI ISHAK"
+        ];
+
+        const SUBJECT_LIST = [
+          "BM", "BI", "MT", "SN", "SJ", 
+          "PI", "JW", "ULM", "TS", "BA", 
+          "PJ", "PK", "PS", "MZ", "RBT"
+        ];
+
+        const TIME_SLOTS = [
+          "7.40-8.10",
+          "8.10-8.40",
+          "8.40-9.10",
+          "9.10-10.10",
+          "10.10-10.30",
+          "10.30-11.00",
+          "11.00-11.30",
+          "11.30-12.00",
+          "12.00-12.30",
+          "12.30-1.00",
+          "1.00-1.30"
+        ];
+
+        const SCHOOL_LOGO_URL = "https://i.postimg.cc/85t7Jtgb/LOGO-SEKOLAH-SKTK-removebg-preview.png";
+
+        const ResourceType = {
+          MAKMAL_KOMPUTER: 'Makmal Komputer',
+          BILIK_MESYUARAT: 'Bilik Mesyuarat',
+        };
+
+        /************************************************************
+         * 2. UTILS
+         ************************************************************/
+        const getMondayCurrentWeek = (d) => {
+          const date = new Date(d);
+          const day = date.getDay();
+          const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+          const monday = new Date(date.setDate(diff));
+          monday.setHours(0, 0, 0, 0);
+          return monday;
+        };
+
+        const getWeekDays = (baseDate = new Date()) => {
+          const monday = getMondayCurrentWeek(baseDate);
+          const days = [];
+          const dayNames = ["Isnin", "Selasa", "Rabu", "Khamis", "Jumaat"];
+
+          for (let i = 0; i < 5; i++) {
+            const nextDay = new Date(monday);
+            nextDay.setDate(monday.getDate() + i);
+            
+            const dd = String(nextDay.getDate()).padStart(2, '0');
+            const mm = String(nextDay.getMonth() + 1).padStart(2, '0');
+            const yyyy = nextDay.getFullYear();
+            const isoDate = `${yyyy}-${mm}-${dd}`;
+
+            days.push({
+              dateObj: nextDay,
+              dayName: dayNames[i],
+              formattedDate: `${dd}/${mm}/${yyyy}`,
+              isoDate: isoDate
+            });
+          }
+          return days;
+        };
+
+        const isSameWeek = (d1, d2) => {
+          const monday1 = getMondayCurrentWeek(d1);
+          const monday2 = getMondayCurrentWeek(d2);
+          return monday1.getTime() === monday2.getTime();
+        };
+
+        /************************************************************
+         * 3. SERVICES
+         ************************************************************/
+        const STORAGE_KEY = 'sktk_bookings_v1';
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw9QK_nyzSMLOzxUX1pGe58jD3JGI-noqpEVJIOsK0LPqnN8fNN0q_pOBTq8NvKetjU/exec"; 
+
+        const getBookings = () => {
+          const stored = localStorage.getItem(STORAGE_KEY);
+          return stored ? JSON.parse(stored) : [];
+        };
+
+        const saveBooking = async (booking) => {
+          // 1. Local Storage
+          const currentBookings = getBookings();
+          const updatedBookings = [...currentBookings, booking];
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedBookings));
+
+          // 2. Google Sheets
+          if (GOOGLE_SCRIPT_URL) {
+            try {
+              await fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors', 
+                headers: {
+                  'Content-Type': 'text/plain',
+                },
+                body: JSON.stringify(booking),
+              });
+              console.log("Data berjaya dihantar ke Google Sheet");
+            } catch (e) {
+              console.error("Gagal menyambung ke Google Sheet", e);
+            }
+          } else {
+            console.warn("URL Google Sheet belum dimasukkan.");
+          }
+          return true;
+        };
+
+        /************************************************************
+         * 4. ICONS (Lucide Replacements)
+         ************************************************************/
+        const Icon = ({ children, className }) => (
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            width="24" height="24" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="currentColor" 
+            strokeWidth="2" 
+            strokeLinecap="round" 
+            strokeLinejoin="round" 
+            className={className}
+          >
+            {children}
+          </svg>
+        );
+
+        const MonitorIcon = ({ className }) => (
+          <Icon className={className}>
+            <rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>
+          </Icon>
+        );
+        const UsersIcon = ({ className }) => (
+          <Icon className={className}>
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </Icon>
+        );
+        const ChevronLeftIcon = ({ className }) => (
+          <Icon className={className}><polyline points="15 18 9 12 15 6"/></Icon>
+        );
+        const ChevronRightIcon = ({ className }) => (
+          <Icon className={className}><polyline points="9 18 15 12 9 6"/></Icon>
+        );
+        const CalendarIcon = ({ className }) => (
+          <Icon className={className}>
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </Icon>
+        );
+        const XIcon = ({ className }) => (
+          <Icon className={className}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>
+        );
+        const CheckCircleIcon = ({ className }) => (
+          <Icon className={className}>
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+          </Icon>
+        );
+        const AlertCircleIcon = ({ className }) => (
+          <Icon className={className}>
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </Icon>
+        );
+
+        /************************************************************
+         * 5. COMPONENTS
+         ************************************************************/
+        const { useState, useEffect } = React;
+
+        const Header = () => {
+          return (
+            <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl shadow-lg mb-6 border border-blue-400/30 text-center">
+              <div className="flex flex-col items-center justify-center space-y-4">
+                <div className="bg-white p-2 rounded-full shadow-md">
+                   <img 
+                    src={SCHOOL_LOGO_URL} 
+                    alt="Logo SK Tanah Kebun" 
+                    className="w-24 h-24 object-contain"
+                  />
+                </div>
+                <div className="text-white">
+                  <h1 className="text-2xl md:text-3xl font-bold uppercase tracking-wide">
+                    Sekolah Kebangsaan Tanah Kebun
+                  </h1>
+                  <p className="text-blue-200 mt-1 text-sm md:text-base font-medium">
+                    34200 Parit Buntar, Perak Darul Ridzuan.
+                  </p>
+                  
+                  <div className="mt-5 pt-4 border-t border-white/10 w-full max-w-lg mx-auto">
+                    <h2 className="text-xl md:text-2xl font-extrabold text-yellow-400 tracking-wider uppercase drop-shadow-sm">
+                      SISTEM E-TEMPAH BILIK KHAS
+                    </h2>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        const ScheduleView = ({ 
+          bookings, 
+          currentResource, 
+          weekDays,
+          onSlotClick,
+          readOnly = false
+        }) => {
+
+          const getTeacherStyle = (name) => {
+            const themes = [
+              { bg: 'bg-red-50', border: 'border-red-200', pill: 'bg-red-200', text: 'text-red-900', label: 'text-red-800' },
+              { bg: 'bg-orange-50', border: 'border-orange-200', pill: 'bg-orange-200', text: 'text-orange-900', label: 'text-orange-800' },
+              { bg: 'bg-amber-50', border: 'border-amber-200', pill: 'bg-amber-200', text: 'text-amber-900', label: 'text-amber-800' },
+              { bg: 'bg-yellow-50', border: 'border-yellow-200', pill: 'bg-yellow-200', text: 'text-yellow-900', label: 'text-yellow-800' },
+              { bg: 'bg-lime-50', border: 'border-lime-200', pill: 'bg-lime-200', text: 'text-lime-900', label: 'text-lime-800' },
+              { bg: 'bg-green-50', border: 'border-green-200', pill: 'bg-green-200', text: 'text-green-900', label: 'text-green-800' },
+              { bg: 'bg-emerald-50', border: 'border-emerald-200', pill: 'bg-emerald-200', text: 'text-emerald-900', label: 'text-emerald-800' },
+              { bg: 'bg-teal-50', border: 'border-teal-200', pill: 'bg-teal-200', text: 'text-teal-900', label: 'text-teal-800' },
+              { bg: 'bg-cyan-50', border: 'border-cyan-200', pill: 'bg-cyan-200', text: 'text-cyan-900', label: 'text-cyan-800' },
+              { bg: 'bg-sky-50', border: 'border-sky-200', pill: 'bg-sky-200', text: 'text-sky-900', label: 'text-sky-800' },
+              { bg: 'bg-blue-50', border: 'border-blue-200', pill: 'bg-blue-200', text: 'text-blue-900', label: 'text-blue-800' },
+              { bg: 'bg-indigo-50', border: 'border-indigo-200', pill: 'bg-indigo-200', text: 'text-indigo-900', label: 'text-indigo-800' },
+              { bg: 'bg-violet-50', border: 'border-violet-200', pill: 'bg-violet-200', text: 'text-violet-900', label: 'text-violet-800' },
+              { bg: 'bg-purple-50', border: 'border-purple-200', pill: 'bg-purple-200', text: 'text-purple-900', label: 'text-purple-800' },
+              { bg: 'bg-fuchsia-50', border: 'border-fuchsia-200', pill: 'bg-fuchsia-200', text: 'text-fuchsia-900', label: 'text-fuchsia-800' },
+              { bg: 'bg-pink-50', border: 'border-pink-200', pill: 'bg-pink-200', text: 'text-pink-900', label: 'text-pink-800' },
+              { bg: 'bg-rose-50', border: 'border-rose-200', pill: 'bg-rose-200', text: 'text-rose-900', label: 'text-rose-800' },
+            ];
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) {
+              hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const index = Math.abs(hash) % themes.length;
+            return themes[index];
+          };
+
+          const getBookingForSlot = (date, slot) => {
+            return bookings.find(b => 
+              b.resource === currentResource && 
+              b.date === date && 
+              b.slot === slot
+            );
+          };
+
+          return (
+            <div className="overflow-x-auto bg-white rounded-lg shadow-xl border border-blue-200">
+              <table className="min-w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th className="bg-blue-900 text-white p-3 border-b border-r border-blue-800 sticky left-0 z-10 w-32 min-w-[120px]">
+                      Masa / Tarikh
+                    </th>
+                    {weekDays.map((day) => (
+                      <th key={day.isoDate} className="bg-blue-800 text-white p-3 border-b border-blue-700 min-w-[180px]">
+                        <div className="font-bold text-lg">{day.dayName}</div>
+                        <div className="text-blue-200 text-xs font-normal">{day.formattedDate}</div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {TIME_SLOTS.map((slot, index) => (
+                    <tr key={slot} className={index % 2 === 0 ? "bg-blue-50" : "bg-white"}>
+                      <td className="p-3 border-r border-blue-200 font-semibold text-blue-900 text-center text-sm sticky left-0 bg-inherit z-10">
+                        {slot}
+                      </td>
+                      {weekDays.map((day) => {
+                        const booking = getBookingForSlot(day.isoDate, slot);
+                        const isBooked = !!booking;
+                        const style = isBooked ? getTeacherStyle(booking.teacherName) : null;
+                        const cellClasses = isBooked 
+                          ? `${style?.bg} ${style?.border} hover:opacity-90` 
+                          : readOnly 
+                            ? 'bg-gray-50/50 cursor-not-allowed' 
+                            : 'hover:bg-blue-100 cursor-pointer group';
+
+                        return (
+                          <td 
+                            key={`${day.isoDate}-${slot}`} 
+                            className={`p-2 border border-blue-100 text-center align-top h-24 transition-colors duration-200 ${cellClasses}`}
+                            onClick={() => !isBooked && !readOnly && onSlotClick(day, slot)}
+                          >
+                            {isBooked && style ? (
+                              <div className="flex flex-col h-full justify-center items-center text-xs space-y-1 animate-fadeIn">
+                                <span className={`font-bold ${style.label} ${style.pill} px-3 py-1 rounded-full truncate max-w-full shadow-sm`}>
+                                  {booking.className} - {booking.subject || '?'}
+                                </span>
+                                <span className={`${style.text} line-clamp-2 leading-tight px-1 font-medium`}>
+                                  {booking.teacherName}
+                                </span>
+                              </div>
+                            ) : (
+                              !readOnly && (
+                                <div className="h-full flex items-center justify-center">
+                                  <span className="text-blue-300 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                                    + Tempah
+                                  </span>
+                                </div>
+                              )
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        };
+
+        const BookingModal = ({
+          isOpen,
+          onClose,
+          onSubmit,
+          resource,
+          selectedDay,
+          selectedSlot
+        }) => {
+          const [className, setClassName] = useState('');
+          const [teacherName, setTeacherName] = useState('');
+          const [subject, setSubject] = useState('');
+          const [error, setError] = useState('');
+
+          if (!isOpen || !selectedDay || !selectedSlot) return null;
+
+          const handleSubmit = (e) => {
+            e.preventDefault();
+            if (!className || !teacherName || !subject) {
+              setError("Sila lengkapkan Nama Kelas, Guru dan Subjek.");
+              return;
+            }
+            onSubmit({ className, teacherName, subject });
+            setClassName('');
+            setTeacherName('');
+            setSubject('');
+            setError('');
+          };
+
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-slideUp">
+                <div className="bg-blue-900 p-4 flex justify-between items-center">
+                  <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                    <CheckCircleIcon className="w-5 h-5 text-green-400" />
+                    Pengesahan Tempahan
+                  </h3>
+                  <button onClick={onClose} className="text-blue-300 hover:text-white transition-colors">
+                    <XIcon className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 space-y-2 text-sm text-blue-900">
+                    <div className="flex justify-between">
+                      <span className="font-semibold text-blue-700">Tempat:</span>
+                      <span>{resource}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-semibold text-blue-700">Tarikh:</span>
+                      <span>{selectedDay.formattedDate} ({selectedDay.dayName})</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-semibold text-blue-700">Masa:</span>
+                      <span className="font-bold">{selectedSlot}</span>
+                    </div>
+                  </div>
+
+                  {error && (
+                    <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-center gap-2">
+                      <AlertCircleIcon className="w-4 h-4" />
+                      {error}
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Nama Kelas</label>
+                    <div className="relative">
+                      <select
+                        value={className}
+                        onChange={(e) => setClassName(e.target.value)}
+                        className="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none appearance-none text-slate-700"
+                      >
+                        <option value="">-- Pilih Kelas --</option>
+                        {CLASS_LIST.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                        <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Subjek</label>
+                    <div className="relative">
+                      <select
+                        value={subject}
+                        onChange={(e) => setSubject(e.target.value)}
+                        className="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none appearance-none text-slate-700"
+                      >
+                        <option value="">-- Pilih Subjek --</option>
+                        {SUBJECT_LIST.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                        <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Nama Guru</label>
+                    <div className="relative">
+                      <select
+                        value={teacherName}
+                        onChange={(e) => setTeacherName(e.target.value)}
+                        className="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none appearance-none text-slate-700"
+                      >
+                        <option value="">-- Pilih Guru --</option>
+                        {TEACHER_LIST.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                        <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 active:scale-95 mt-4"
+                  >
+                    Sahkan Tempahan
+                  </button>
+                </form>
+              </div>
+            </div>
+          );
+        };
+
+        const App = () => {
+          const [resource, setResource] = useState(ResourceType.MAKMAL_KOMPUTER);
+          const [bookings, setBookings] = useState([]);
+          
+          // Navigation State
+          const [referenceDate, setReferenceDate] = useState(new Date());
+          const [weekDays, setWeekDays] = useState([]);
+          
+          // Modal State
+          const [isModalOpen, setIsModalOpen] = useState(false);
+          const [selectedDay, setSelectedDay] = useState(null);
+          const [selectedSlot, setSelectedSlot] = useState(null);
+
+          useEffect(() => {
+            const days = getWeekDays(referenceDate);
+            setWeekDays(days);
+          }, [referenceDate]);
+
+          useEffect(() => {
+            const storedBookings = getBookings();
+            setBookings(storedBookings);
+          }, []);
+
+          const handleSlotClick = (day, slot) => {
+            setSelectedDay(day);
+            setSelectedSlot(slot);
+            setIsModalOpen(true);
+          };
+
+          const handleBookingSubmit = async (data) => {
+            if (!selectedDay || !selectedSlot) return;
+
+            const newBooking = {
+              id: crypto.randomUUID(),
+              resource: resource,
+              date: selectedDay.isoDate,
+              slot: selectedSlot,
+              className: data.className,
+              teacherName: data.teacherName,
+              subject: data.subject,
+              timestamp: Date.now()
+            };
+
+            const success = await saveBooking(newBooking);
+            if (success) {
+              setBookings(prev => [...prev, newBooking]);
+              setIsModalOpen(false);
+            } else {
+              alert("Ralat menyimpan tempahan.");
+            }
+          };
+
+          const handlePrevWeek = () => {
+            const newDate = new Date(referenceDate);
+            newDate.setDate(newDate.getDate() - 7);
+            setReferenceDate(newDate);
+          };
+
+          const handleNextWeek = () => {
+            const newDate = new Date(referenceDate);
+            newDate.setDate(newDate.getDate() + 7);
+            setReferenceDate(newDate);
+          };
+
+          const handleResetToCurrent = () => {
+            setReferenceDate(new Date());
+          };
+
+          const isCurrentWeek = isSameWeek(new Date(), referenceDate);
+
+          return (
+            <div className="min-h-screen bg-gradient-to-br from-blue-950 to-slate-900 pb-20">
+              <div className="max-w-7xl mx-auto px-4 py-8">
+                
+                <Header />
+
+                {/* Tab Selection */}
+                <div className="flex justify-center mb-8">
+                  <div className="bg-blue-900/50 p-1 rounded-xl flex space-x-2 backdrop-blur-sm border border-blue-800">
+                    <button
+                      onClick={() => setResource(ResourceType.MAKMAL_KOMPUTER)}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-lg font-bold transition-all duration-300 ${
+                        resource === ResourceType.MAKMAL_KOMPUTER
+                          ? 'bg-blue-500 text-white shadow-lg'
+                          : 'text-blue-300 hover:bg-blue-800/50 hover:text-white'
+                      }`}
+                    >
+                      <MonitorIcon className="w-5 h-5" />
+                      <span>Makmal Komputer</span>
+                    </button>
+                    <button
+                      onClick={() => setResource(ResourceType.BILIK_MESYUARAT)}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-lg font-bold transition-all duration-300 ${
+                        resource === ResourceType.BILIK_MESYUARAT
+                          ? 'bg-purple-600 text-white shadow-lg'
+                          : 'text-blue-300 hover:bg-blue-800/50 hover:text-white'
+                      }`}
+                    >
+                      <UsersIcon className="w-5 h-5" />
+                      <span>Bilik Mesyuarat</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Week Navigation */}
+                <div className="flex flex-col md:flex-row justify-between items-center mb-6 bg-white/5 p-4 rounded-xl border border-white/10 backdrop-blur-sm gap-4">
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={handlePrevWeek}
+                      className="p-2 rounded-lg bg-blue-800 text-blue-200 hover:bg-blue-700 hover:text-white transition-colors"
+                      title="Minggu Lepas"
+                    >
+                      <ChevronLeftIcon className="w-6 h-6" />
+                    </button>
+                    <div className="flex flex-col items-center px-4">
+                      <span className="text-blue-200 text-xs font-medium uppercase tracking-wider">Jadual Minggu</span>
+                      <span className="text-white font-bold text-lg">
+                        {weekDays.length > 0 && `${weekDays[0].formattedDate} - ${weekDays[4].formattedDate}`}
+                      </span>
+                    </div>
+                    <button 
+                      onClick={handleNextWeek}
+                      className="p-2 rounded-lg bg-blue-800 text-blue-200 hover:bg-blue-700 hover:text-white transition-colors"
+                      title="Minggu Hadapan"
+                    >
+                      <ChevronRightIcon className="w-6 h-6" />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    {!isCurrentWeek && (
+                       <button 
+                         onClick={handleResetToCurrent}
+                         className="flex items-center gap-2 px-4 py-2 bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 rounded-lg hover:bg-emerald-600/30 transition-all text-sm font-medium"
+                       >
+                         <CalendarIcon className="w-4 h-4" />
+                         Kembali ke Minggu Ini
+                       </button>
+                    )}
+                    
+                    {!isCurrentWeek && (
+                      <div className="px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300 text-sm font-medium">
+                        Paparan Sahaja (Tempahan Ditutup)
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Information Banner (Only show if current week) */}
+                {isCurrentWeek && (
+                  <div className="mb-6 bg-yellow-500/10 border-l-4 border-yellow-500 p-4 rounded-r-lg text-yellow-200 text-sm">
+                    <p className="font-semibold">Perhatian:</p>
+                    <ul className="list-disc pl-5 mt-1 space-y-1">
+                      <li>Tempahan dibuka mulai 12:00 AM hari Isnin untuk minggu semasa sahaja.</li>
+                      <li>Pastikan pilihan masa tidak bertindih dengan tempahan sedia ada.</li>
+                      <li>Data disimpan secara automatik.</li>
+                    </ul>
+                  </div>
+                )}
+
+                {/* Schedule Grid */}
+                <ScheduleView 
+                  bookings={bookings}
+                  currentResource={resource}
+                  weekDays={weekDays}
+                  onSlotClick={handleSlotClick}
+                  readOnly={!isCurrentWeek}
+                />
+
+                {/* Booking Modal */}
+                <BookingModal 
+                  isOpen={isModalOpen}
+                  onClose={() => setIsModalOpen(false)}
+                  onSubmit={handleBookingSubmit}
+                  resource={resource}
+                  selectedDay={selectedDay}
+                  selectedSlot={selectedSlot}
+                />
+                
+                <div className="mt-12 text-center text-blue-400/60 text-xs">
+                  Sistem Tempahan Sekolah Kebangsaan Tanah Kebun &copy; {new Date().getFullYear()}
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
