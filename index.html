@@ -71,12 +71,14 @@
         ];
 
         const CLASSES = [
+            { name: 'PRA AL-IKHLAS' }, { name: 'PRA AL-FALAQ' }, { name: 'PRA AN-NAS' },
             { name: '1 AL-IKHLAS' }, { name: '1 AL-FALAQ' }, { name: '1 AN-NAS' },
             { name: '2 AL-IKHLAS' }, { name: '2 AL-FALAQ' }, { name: '2 AN-NAS' },
             { name: '3 AL-IKHLAS' }, { name: '3 AL-FALAQ' },
             { name: '4 AL-IKHLAS' }, { name: '4 AL-FALAQ' }, { name: '4 AN-NAS' },
             { name: '5 AL-IKHLAS' }, { name: '5 AL-FALAQ' },
             { name: '6 AL-IKHLAS' }, { name: '6 AL-FALAQ' }, { name: '6 AN-NAS' },
+            { name: 'LAIN-LAIN' },
         ];
 
         const TEACHERS = [
@@ -137,7 +139,80 @@
             { code: 'SJ' }, { code: 'BA' }, { code: 'PI' }, { code: 'JW' },
             { code: 'ULM' }, { code: 'TS' }, { code: 'PS' }, { code: 'MZ' },
             { code: 'PJ' }, { code: 'PK' }, { code: 'RBT' },
+            { code: 'PRA' },
+            { code: 'TAKLIMAT/MESYUARAT/AKTIVITI' },
         ];
+
+        // --- TEMPAHAN KEKAL / PERMANENT BOOKINGS ---
+        const getPermanentBooking = (room, dayLabel, slotLabel) => {
+            // --- MAKMAL KOMPUTER ---
+            if (room === RoomType.MAKMAL_KOMPUTER) {
+                 const AMIRUL_DETAILS = {
+                    teacherName: "AMIRUL FAHMI BIN YUSUP",
+                    className: "6 AL-IKHLAS",
+                    subject: "BM",
+                    isPermanent: true
+                 };
+                 const AQEELA_DETAILS = {
+                    teacherName: "AQEELA BINTI ALIAH",
+                    className: "6 AL-IKHLAS",
+                    subject: "BI",
+                    isPermanent: true
+                 };
+
+                 // ISNIN 11.30-12.30 (AMIRUL)
+                 // Slot: 11.30-12.00 & 12.00-12.30
+                 if (dayLabel === DayOfWeek.ISNIN && ['11.30-12.00', '12.00-12.30'].includes(slotLabel)) {
+                     return AMIRUL_DETAILS;
+                 }
+
+                 // ISNIN 12.30-1.30 (AQEELA)
+                 // Slot: 12.30-1.00 & 1.00-1.30
+                 if (dayLabel === DayOfWeek.ISNIN && ['12.30-1.00', '1.00-1.30'].includes(slotLabel)) {
+                     return AQEELA_DETAILS;
+                 }
+
+                 // SELASA 11.30-12.30 (AMIRUL)
+                 // Slot: 11.30-12.00 & 12.00-12.30
+                 if (dayLabel === DayOfWeek.SELASA && ['11.30-12.00', '12.00-12.30'].includes(slotLabel)) {
+                     return AMIRUL_DETAILS;
+                 }
+
+                 // RABU 12.30-1.30 (AMIRUL)
+                 // Slot: 12.30-1.00 & 1.00-1.30
+                 if (dayLabel === DayOfWeek.RABU && ['12.30-1.00', '1.00-1.30'].includes(slotLabel)) {
+                     return AMIRUL_DETAILS;
+                 }
+            }
+
+            // --- BILIK TAYANGAN ---
+            if (room === RoomType.BILIK_TAYANGAN) {
+                const TEACHER_NAME = "NORYANA BINTI ABDUL RAZAK";
+                const DETAILS = { 
+                    teacherName: TEACHER_NAME, 
+                    className: "TEMPAHAN KHAS", 
+                    subject: "PSS", 
+                    isPermanent: true 
+                };
+
+                // Isnin: 12.30-1.30 (Slot 12.30-1.00 & 1.00-1.30)
+                if (dayLabel === DayOfWeek.ISNIN) {
+                    if (['12.30-1.00', '1.00-1.30'].includes(slotLabel)) return DETAILS;
+                }
+
+                // Selasa: 12.00-1.00 (Slot 12.00-12.30 & 12.30-1.00)
+                if (dayLabel === DayOfWeek.SELASA) {
+                    if (['12.00-12.30', '12.30-1.00'].includes(slotLabel)) return DETAILS;
+                }
+
+                // Rabu: 10.10-10.30 (REHAT) & 11.00-11.30
+                if (dayLabel === DayOfWeek.RABU) {
+                    if (['10.10-10.30', '11.00-11.30'].includes(slotLabel)) return DETAILS;
+                }
+            }
+
+            return null;
+        };
 
         // --- SERVICES ---
         const getBookings = async () => {
@@ -252,6 +327,9 @@
                                     Slot ini telah ditempah oleh <br/>
                                     <span className="font-semibold text-yellow-400">{existingBooking.teacherName}</span><br/>
                                     untuk kelas <span className="font-semibold">{existingBooking.className}</span>.
+                                    {existingBooking.isPermanent && (
+                                        <span className="block mt-2 text-xs text-blue-400 font-bold bg-blue-900/50 p-1 rounded">TEMPAHAN KEKAL MINGGUAN</span>
+                                    )}
                                 </p>
                                 <button onClick={onClose} className="px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors">
                                     Tutup
@@ -348,8 +426,13 @@
                 { label: 'ISNIN', offset: 0 }, { label: 'SELASA', offset: 1 }, { label: 'RABU', offset: 2 },
                 { label: 'KHAMIS', offset: 3 }, { label: 'JUMAAT', offset: 4 },
             ];
-            const getBooking = (date, slotLabel) => {
-                return bookings.find(b => b.room === selectedRoom && b.timeSlot === slotLabel && isSameDay(new Date(b.date), date));
+            const getBooking = (date, slotLabel, dayLabel) => {
+                // Check API bookings first
+                const apiBooking = bookings.find(b => b.room === selectedRoom && b.timeSlot === slotLabel && isSameDay(new Date(b.date), date));
+                if (apiBooking) return apiBooking;
+
+                // Check Permanent bookings
+                return getPermanentBooking(selectedRoom, dayLabel, slotLabel);
             };
 
             return (
@@ -373,10 +456,13 @@
                                     <div className="p-3 border-r border-slate-600 text-sm font-mono text-blue-200 flex items-center justify-center font-bold">{slot.label}</div>
                                     {days.map((day) => {
                                         const currentDate = addDays(weekStart, day.offset);
-                                        const booking = getBooking(currentDate, slot.label);
-                                        if (slot.label.includes('REHAT')) {
+                                        const booking = getBooking(currentDate, slot.label, day.label);
+                                        
+                                        // Handle REHAT. Show REHAT text only if there is NO booking.
+                                        if (slot.label.includes('REHAT') && !booking) {
                                             return <div key={`${day.label}-${slot.id}`} className="p-2 border-r border-slate-700 bg-gray-900/50 flex items-center justify-center text-gray-500 text-xs italic">REHAT</div>;
                                         }
+
                                         const teacherColorClass = booking ? getTeacherColorClass(booking.teacherName) : '';
                                         return (
                                             <div key={`${day.label}-${slot.id}`} 
@@ -431,7 +517,13 @@
             const canBook = isViewedWeekCurrent;
 
             const handleSlotClick = (date, slot, day) => {
-                const existing = bookings.find(b => b.room === selectedRoom && b.timeSlot === slot && b.date === format(date, 'yyyy-MM-dd'));
+                let existing = bookings.find(b => b.room === selectedRoom && b.timeSlot === slot && b.date === format(date, 'yyyy-MM-dd'));
+                
+                // If no API booking, check for permanent booking
+                if (!existing) {
+                    existing = getPermanentBooking(selectedRoom, day, slot);
+                }
+
                 if (existing) {
                     setModalData({ date, slot, day, existing });
                     setIsModalOpen(true);
