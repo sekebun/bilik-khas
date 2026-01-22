@@ -43,7 +43,7 @@
     <script type="text/babel" data-type="module">
         import React, { useState, useEffect, useCallback } from 'react';
         import { createRoot } from 'react-dom/client';
-        import { format, addDays, startOfWeek, subWeeks, addWeeks, isSameWeek, startOfToday, isSameDay } from 'date-fns';
+        import { format, addDays, startOfWeek, subWeeks, addWeeks, isSameWeek, startOfToday, isSameDay, subDays, isAfter, isBefore } from 'date-fns';
         import { ChevronLeft, ChevronRight, Monitor, Film, Users, Info, Loader2, Database, Lock, X, CalendarPlus, AlertTriangle } from 'lucide-react';
 
         // --- TYPES & DATA ---
@@ -553,9 +553,19 @@
             const handlePreviousWeek = () => setCurrentWeekStart(prev => subWeeks(prev, 1));
             const handleNextWeek = () => setCurrentWeekStart(prev => addWeeks(prev, 1));
 
-            const today = startOfToday();
-            const isViewedWeekCurrent = isSameWeek(currentWeekStart, today, { weekStartsOn: 1 });
-            const canBook = isViewedWeekCurrent;
+            // LOGIC TEMPAHAN BARU:
+            // Tempahan untuk minggu tersebut (currentWeekStart) dibuka bermula Jumaat minggu sebelumnya (currentWeekStart - 3 hari).
+            // Kita juga menghalang tempahan untuk minggu yang telah berlalu.
+            const today = new Date();
+            const allowedBookingStart = subDays(currentWeekStart, 3); // Jumaat sebelum Isnin minggu ini
+            
+            // Adakah hari ini >= tarikh buka tempahan?
+            const isBookingOpen = isAfter(today, allowedBookingStart) || isSameDay(today, allowedBookingStart);
+            
+            // Adakah minggu ini minggu lepas? (Jangan benarkan edit sejarah)
+            const isPastWeek = isBefore(currentWeekStart, startOfWeek(today, { weekStartsOn: 1 }));
+
+            const canBook = isBookingOpen && !isPastWeek;
 
             const handleSlotClick = (date, slot, day) => {
                 let existing = bookings.find(b => b.room === selectedRoom && b.timeSlot === slot && b.date === format(date, 'yyyy-MM-dd'));
@@ -571,7 +581,7 @@
                     return;
                 }
                 if (!canBook) {
-                    alert("Maaf, tempahan hanya dibuka untuk minggu semasa bermula hari Isnin.");
+                    alert("Maaf, tempahan hanya dibuka bermula hari Jumaat minggu sebelumnya.");
                     return;
                 }
                 setModalData({ date, slot, day });
@@ -630,7 +640,8 @@
                                 <Database className="text-blue-400 mt-1 flex-shrink-0" size={20} />
                                 <div>
                                     <p className="text-blue-200 text-sm">Sistem disambungkan ke Google Cloud Database. Data akan diselaraskan untuk semua guru secara masa nyata.</p>
-                                    {!isViewedWeekCurrent && <p className="text-yellow-500 text-xs font-bold mt-2 uppercase tracking-wide">MOD LIHAT SAHAJA (Bukan Minggu Semasa)</p>}
+                                    {!canBook && !isPastWeek && <p className="text-yellow-500 text-xs font-bold mt-2 uppercase tracking-wide">TEMPAHAN DITUTUP (Dibuka pada Jumaat minggu sebelumnya)</p>}
+                                    {isPastWeek && <p className="text-red-400 text-xs font-bold mt-2 uppercase tracking-wide">MINGGU LEPAS (Lihat Sahaja)</p>}
                                 </div>
                             </div>
                             <button onClick={fetchBookings} disabled={isLoading} className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm transition-colors border border-slate-700">
