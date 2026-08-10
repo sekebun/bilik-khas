@@ -1,5 +1,5 @@
-import { API_URL } from '../constants';
-import { Booking } from '../types';
+import { API_URL, TIME_SLOTS } from '../constants';
+import { Booking, PermanentBooking } from '../types';
 
 export const fetchBookings = async (): Promise<Booking[]> => {
   try {
@@ -64,6 +64,94 @@ export const fetchTeachersAndSubjects = async (): Promise<{ teachers: string[], 
   } catch (error) {
     console.error("Failed to fetch teachers and subjects:", error);
     return { teachers: [], subjects: [] };
+  }
+};
+
+function expandTimeRanges(input: string): string[] {
+  const expanded: string[] = [];
+  const parts = input.split(',').map(s => s.trim());
+  
+  for (const part of parts) {
+    if (TIME_SLOTS.includes(part)) {
+      expanded.push(part);
+      continue;
+    }
+    
+    const [start, end] = part.split('-').map(s => s.trim());
+    let capturing = false;
+    
+    for (const slot of TIME_SLOTS) {
+      const [slotStart, slotEnd] = slot.split('-');
+      if (slotStart === start) {
+        capturing = true;
+      }
+      if (capturing) {
+        expanded.push(slot);
+      }
+      if (slotEnd === end) {
+        capturing = false;
+      }
+    }
+  }
+  return expanded;
+}
+
+export const fetchPermanentBookings = async (): Promise<PermanentBooking[]> => {
+  try {
+    const csvUrl = "https://docs.google.com/spreadsheets/d/1HyFdXlr7Kawoxu5RKBUCXO1asDbw1lStYaRaMFSYysk/gviz/tq?tqx=out:csv&sheet=Sheet2";
+    const response = await fetch(csvUrl);
+    if (!response.ok) throw new Error("Failed to fetch Permanent Bookings CSV");
+    const csvText = await response.text();
+    
+    const lines = csvText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    const dataLines = lines.slice(1);
+    
+    const bookings: PermanentBooking[] = [];
+    
+    dataLines.forEach(line => {
+      const parts: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          parts.push(current);
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      parts.push(current);
+
+      if (parts.length >= 4) {
+        const teacherName = parts[0]?.trim() || '';
+        const subject = parts[1]?.trim() || '';
+        const timeInput = parts[2]?.trim() || '';
+        const day = parts[3]?.trim().toUpperCase() || '';
+        const room = parts[4]?.trim() || '';
+        const className = parts[5]?.trim() || '';
+        
+        const slots = expandTimeRanges(timeInput);
+        
+        if (teacherName && day && slots.length > 0 && room) {
+          bookings.push({
+            teacherName,
+            subject,
+            className,
+            slots,
+            day,
+            room
+          });
+        }
+      }
+    });
+    
+    return bookings;
+  } catch (error) {
+    console.error("Failed to fetch permanent bookings:", error);
+    return [];
   }
 };
 

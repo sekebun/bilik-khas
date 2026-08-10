@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { SCHOOL_LOGO, DAYS_OF_WEEK, TIME_SLOTS, PERMANENT_BOOKINGS } from './constants';
-import { Booking, RoomType } from './types';
+import { SCHOOL_LOGO, DAYS_OF_WEEK, TIME_SLOTS } from './constants';
+import { Booking, RoomType, PermanentBooking } from './types';
 import { getMonday, addDays, formatDate, formatDateForISO, stringToColor, stringToBorderColor, isBookingAllowed, getDayDate, normalizeDate, getMalaysiaDate } from './utils';
-import { fetchBookings, createBookingWithResponse, fetchTeachersAndSubjects, deleteBookingWithResponse } from './services/api';
+import { fetchBookings, createBookingWithResponse, fetchTeachersAndSubjects, deleteBookingWithResponse, fetchPermanentBookings } from './services/api';
 import BookingModal from './components/BookingModal';
 import DeleteModal from './components/DeleteModal';
 
@@ -11,6 +11,7 @@ function App() {
   const [currentWeekMonday, setCurrentWeekMonday] = useState(getMonday(getMalaysiaDate()));
   const [selectedRoom, setSelectedRoom] = useState<RoomType>(RoomType.MAKMAL_KOMPUTER);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [permanentBookings, setPermanentBookings] = useState<PermanentBooking[]>([]);
   const [teachers, setTeachers] = useState<string[]>([]);
   const [subjects, setSubjects] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,13 +28,15 @@ function App() {
 
   const loadBookings = useCallback(async () => {
     setLoading(true);
-    const [data, teachersAndSubjects] = await Promise.all([
+    const [data, teachersAndSubjects, permBookingsData] = await Promise.all([
       fetchBookings(),
-      fetchTeachersAndSubjects()
+      fetchTeachersAndSubjects(),
+      fetchPermanentBookings()
     ]);
     setBookings(data);
     setTeachers(teachersAndSubjects.teachers);
     setSubjects(teachersAndSubjects.subjects);
+    setPermanentBookings(permBookingsData);
     setLoading(false);
   }, []);
 
@@ -75,7 +78,7 @@ function App() {
 
   const checkIsOccupied = (day: string, time: string, dateISO: string) => {
     // 1. Check Permanent
-    const perm = PERMANENT_BOOKINGS.find(p => p.room === selectedRoom && p.day === day && p.slots.includes(time));
+    const perm = permanentBookings.find(p => p.room.toUpperCase() === selectedRoom.toUpperCase() && p.day === day && p.slots.includes(time));
     if (perm) return { type: 'permanent', data: perm };
 
     // 2. Check Adhoc Bookings
