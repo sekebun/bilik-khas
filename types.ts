@@ -24,7 +24,8 @@ export interface PermanentBooking {
 export enum RoomType {
   MAKMAL_KOMPUTER = 'MAKMAL KOMPUTER',
   BILIK_TAYANGAN = 'BILIK TAYANGAN',
-  BILIK_MESYUARAT = 'BILIK MESYUARAT'
+  BILIK_MESYUARAT = 'BILIK MESYUARAT',
+  BENGKEL_RBT = 'BENGKEL RBT'
 }
 
 export interface SlotData {

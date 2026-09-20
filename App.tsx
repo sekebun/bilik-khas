@@ -224,7 +224,7 @@ function App() {
       <div className="container mx-auto px-2 md:px-4 mt-6">
         <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex bg-gray-100 p-1 rounded-lg">
+            <div className="flex flex-wrap gap-1 bg-gray-100 p-1 rounded-lg">
               {Object.values(RoomType).map((room) => (
                 <button
                   key={room}
