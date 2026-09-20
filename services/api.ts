@@ -15,7 +15,7 @@ export const fetchBookings = async (): Promise<Booking[]> => {
   }
 };
 
-export const fetchTeachersAndSubjects = async (): Promise<{ teachers: string[], subjects: string[] }> => {
+export const fetchTeachersAndSubjects = async (): Promise<{ teachers: string[], subjects: string[], teacherColors: Record<string, string> }> => {
   try {
     const csvUrl = "https://docs.google.com/spreadsheets/d/1HyFdXlr7Kawoxu5RKBUCXO1asDbw1lStYaRaMFSYysk/export?format=csv";
     const response = await fetch(csvUrl);
@@ -28,6 +28,7 @@ export const fetchTeachersAndSubjects = async (): Promise<{ teachers: string[], 
     
     const teachers: string[] = [];
     const subjects: string[] = [];
+    const teacherColors: Record<string, string> = {};
     
     dataLines.forEach(line => {
       // Simple CSV parsing
@@ -49,7 +50,16 @@ export const fetchTeachersAndSubjects = async (): Promise<{ teachers: string[], 
 
       if (parts.length >= 1) {
         const teacher = parts[0].trim();
-        if (teacher) teachers.push(teacher);
+        if (teacher) {
+          teachers.push(teacher);
+          // If KOD_WARNA is in column 4 (parts[3])
+          if (parts.length >= 4 && parts[3]?.trim()) {
+            const rawColor = parts[3].trim();
+            if (/^#([0-9A-F]{3}){1,2}$/i.test(rawColor)) {
+              teacherColors[teacher] = rawColor;
+            }
+          }
+        }
       }
       if (parts.length >= 2) {
         const subject = parts[1].trim();
@@ -59,11 +69,12 @@ export const fetchTeachersAndSubjects = async (): Promise<{ teachers: string[], 
     
     return {
       teachers: Array.from(new Set(teachers)).filter(Boolean),
-      subjects: Array.from(new Set(subjects)).filter(Boolean)
+      subjects: Array.from(new Set(subjects)).filter(Boolean),
+      teacherColors
     };
   } catch (error) {
     console.error("Failed to fetch teachers and subjects:", error);
-    return { teachers: [], subjects: [] };
+    return { teachers: [], subjects: [], teacherColors: {} };
   }
 };
 

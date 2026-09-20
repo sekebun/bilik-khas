@@ -1,40 +1,76 @@
-import { DAYS_OF_WEEK } from './constants';
+import { DAYS_OF_WEEK, TEACHER_COLOR_MAP, DEFAULT_COLOR_PALETTE, normalizeTeacherName } from './constants';
 
-const COLOR_PALETTE = [
-  { bg: "#fee2e2", border: "#dc2626" }, // Red
-  { bg: "#ffedd5", border: "#ea580c" }, // Orange
-  { bg: "#fef3c7", border: "#d97706" }, // Amber
-  { bg: "#fef9c3", border: "#ca8a04" }, // Yellow
-  { bg: "#ecfccb", border: "#65a30d" }, // Lime
-  { bg: "#dcfce7", border: "#16a34a" }, // Green
-  { bg: "#d1fae5", border: "#059669" }, // Emerald
-  { bg: "#ccfbf1", border: "#0d9488" }, // Teal
-  { bg: "#cffafe", border: "#0891b2" }, // Cyan
-  { bg: "#e0f2fe", border: "#0284c7" }, // Sky
-  { bg: "#dbeafe", border: "#2563eb" }, // Blue
-  { bg: "#e0e7ff", border: "#4f46e5" }, // Indigo
-  { bg: "#ede9fe", border: "#7c3aed" }, // Violet
-  { bg: "#fae8ff", border: "#c026d3" }, // Fuchsia
-  { bg: "#fce7f3", border: "#db2777" }, // Pink
-  { bg: "#ffe4e6", border: "#e11d48" }, // Rose
-];
+export const getContrastTextColor = (hex: string): { text: string; subText: string } => {
+  if (!hex) return { text: '#111827', subText: '#374151' };
+  let c = hex.replace('#', '').trim();
+  if (c.length === 3) c = c.split('').map(x => x + x).join('');
+  const r = parseInt(c.substring(0, 2), 16) || 0;
+  const g = parseInt(c.substring(2, 4), 16) || 0;
+  const b = parseInt(c.substring(4, 6), 16) || 0;
+  
+  // YIQ formula for perceived brightness
+  const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+  
+  if (yiq >= 140) {
+    return { text: '#111827', subText: '#374151' };
+  } else {
+    return { text: '#ffffff', subText: '#f3f4f6' };
+  }
+};
 
-const getColorObj = (str: string) => {
+export const getBorderColor = (hex: string): string => {
+  if (!hex) return '#3b82f6';
+  let c = hex.replace('#', '').trim();
+  if (c.length === 3) c = c.split('').map(x => x + x).join('');
+  const num = parseInt(c, 16);
+  if (isNaN(num)) return '#1d4ed8';
+  const r = Math.max(0, Math.min(255, (num >> 16) - 35));
+  const g = Math.max(0, Math.min(255, ((num >> 8) & 0x00FF) - 35));
+  const b = Math.max(0, Math.min(255, (num & 0x0000FF) - 35));
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+};
+
+export const stringToColor = (str: string, dynamicColors?: Record<string, string>): string => {
+  if (!str) return '#3b82f6';
+  const key = normalizeTeacherName(str);
+  
+  if (dynamicColors) {
+    if (dynamicColors[key]) return dynamicColors[key];
+    if (dynamicColors[str]) return dynamicColors[str];
+  }
+
+  if (TEACHER_COLOR_MAP[key]) {
+    return TEACHER_COLOR_MAP[key];
+  }
+  if (TEACHER_COLOR_MAP[str]) {
+    return TEACHER_COLOR_MAP[str];
+  }
+
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
-  const index = Math.abs(hash) % COLOR_PALETTE.length;
-  return COLOR_PALETTE[index];
+  const index = Math.abs(hash) % DEFAULT_COLOR_PALETTE.length;
+  return DEFAULT_COLOR_PALETTE[index];
 };
 
-export const stringToColor = (str: string) => {
-  return getColorObj(str).bg;
+export const stringToBorderColor = (str: string, dynamicColors?: Record<string, string>): string => {
+  const bg = stringToColor(str, dynamicColors);
+  return getBorderColor(bg);
 };
 
-export const stringToBorderColor = (str: string) => {
-    return getColorObj(str).border;
+export const getTeacherStyles = (teacherName: string, dynamicColors?: Record<string, string>) => {
+  const bgColor = stringToColor(teacherName, dynamicColors);
+  const textColors = getContrastTextColor(bgColor);
+  const borderColor = getBorderColor(bgColor);
+
+  return {
+    backgroundColor: bgColor,
+    borderColor: borderColor,
+    color: textColors.text,
+    subTextColor: textColors.subText,
   };
+};
 
 // --- TIMEZONE UTILS (Malaysia GMT+8) ---
 

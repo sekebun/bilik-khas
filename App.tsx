@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { SCHOOL_LOGO, DAYS_OF_WEEK, TIME_SLOTS } from './constants';
 import { Booking, RoomType, PermanentBooking } from './types';
-import { getMonday, addDays, formatDate, formatDateForISO, stringToColor, stringToBorderColor, isBookingAllowed, getDayDate, normalizeDate, getMalaysiaDate } from './utils';
+import { getMonday, addDays, formatDate, formatDateForISO, stringToColor, stringToBorderColor, getTeacherStyles, isBookingAllowed, getDayDate, normalizeDate, getMalaysiaDate } from './utils';
 import { fetchBookings, createBookingWithResponse, fetchTeachersAndSubjects, deleteBookingWithResponse, fetchPermanentBookings } from './services/api';
 import BookingModal from './components/BookingModal';
 import DeleteModal from './components/DeleteModal';
@@ -14,6 +14,7 @@ function App() {
   const [permanentBookings, setPermanentBookings] = useState<PermanentBooking[]>([]);
   const [teachers, setTeachers] = useState<string[]>([]);
   const [subjects, setSubjects] = useState<string[]>([]);
+  const [teacherColors, setTeacherColors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   
   // Modal State
@@ -36,6 +37,7 @@ function App() {
     setBookings(data);
     setTeachers(teachersAndSubjects.teachers);
     setSubjects(teachersAndSubjects.subjects);
+    setTeacherColors(teachersAndSubjects.teacherColors || {});
     setPermanentBookings(permBookingsData);
     setLoading(false);
   }, []);
@@ -163,8 +165,7 @@ function App() {
     if (occupied) {
       if (occupied.type === 'permanent') {
         const p = occupied.data as any;
-        const bgColor = stringToColor(p.teacherName);
-        const borderColor = stringToBorderColor(p.teacherName);
+        const styles = getTeacherStyles(p.teacherName, teacherColors);
         
         const displayClass = p.className || '';
         const displaySubject = p.subject || '';
@@ -172,26 +173,33 @@ function App() {
 
         return (
           <div 
-            className="w-full h-full p-1 text-xs border-l-4 overflow-hidden shadow-sm flex flex-col justify-center"
-            style={{ backgroundColor: bgColor, borderColor: borderColor }}
+            className="w-full h-full p-1.5 text-xs border-l-4 overflow-hidden shadow-sm flex flex-col justify-center transition-all"
+            style={{ 
+              backgroundColor: styles.backgroundColor, 
+              borderLeftColor: styles.borderColor,
+              color: styles.color 
+            }}
           >
-            <p className="font-bold text-gray-800 truncate" title={p.teacherName}>{p.teacherName}</p>
-            <p className="text-gray-700 truncate">{bottomText}</p>
+            <p className="font-bold truncate" style={{ color: styles.color }} title={p.teacherName}>{p.teacherName}</p>
+            <p className="truncate text-[11px] font-medium opacity-90" style={{ color: styles.subTextColor }}>{bottomText}</p>
           </div>
         );
       } else {
         const b = occupied.data as Booking;
-        const bgColor = stringToColor(b.teacherName);
-        const borderColor = stringToBorderColor(b.teacherName);
+        const styles = getTeacherStyles(b.teacherName, teacherColors);
         return (
           <div 
             onClick={() => handleDeleteClick(b)}
-            className="w-full h-full p-1 text-xs border-l-4 overflow-hidden shadow-sm flex flex-col justify-center cursor-pointer group"
-            style={{ backgroundColor: bgColor, borderColor: borderColor }}
+            className="w-full h-full p-1.5 text-xs border-l-4 overflow-hidden shadow-sm flex flex-col justify-center cursor-pointer group transition-all hover:brightness-95"
+            style={{ 
+              backgroundColor: styles.backgroundColor, 
+              borderLeftColor: styles.borderColor,
+              color: styles.color 
+            }}
             title="Klik untuk padam tempahan"
           >
-            <p className="font-bold text-gray-800 truncate" title={b.teacherName}>{b.teacherName}</p>
-            <p className="text-gray-700 truncate">{b.className} - {b.subject}</p>
+            <p className="font-bold truncate" style={{ color: styles.color }} title={b.teacherName}>{b.teacherName}</p>
+            <p className="truncate text-[11px] font-medium opacity-90" style={{ color: styles.subTextColor }}>{b.className} - {b.subject}</p>
           </div>
         );
       }
@@ -311,6 +319,7 @@ function App() {
         isSubmitting={isSubmitting}
         teachers={teachers}
         subjects={subjects}
+        teacherColors={teacherColors}
       />
 
       <DeleteModal

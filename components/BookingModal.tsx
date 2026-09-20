@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CLASSES } from '../constants';
+import { stringToColor, getContrastTextColor } from '../utils';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -9,9 +10,10 @@ interface BookingModalProps {
   isSubmitting: boolean;
   teachers: string[];
   subjects: string[];
+  teacherColors?: Record<string, string>;
 }
 
-const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, onSubmit, slotInfo, isSubmitting, teachers, subjects }) => {
+const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, onSubmit, slotInfo, isSubmitting, teachers, subjects, teacherColors }) => {
   const [teacher, setTeacher] = useState('');
   const [cls, setCls] = useState('');
   const [subject, setSubject] = useState('');
@@ -45,6 +47,9 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, onSubmit, 
     }
   };
 
+  const selectedTeacherColor = teacher ? stringToColor(teacher, teacherColors) : null;
+  const contrastColors = selectedTeacherColor ? getContrastTextColor(selectedTeacherColor) : null;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
@@ -65,6 +70,20 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, onSubmit, 
               <option value="">Pilih Guru</option>
               {teachers.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
+            {selectedTeacherColor && (
+              <div className="mt-2 flex items-center gap-2 text-xs">
+                <span 
+                  className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold border border-black/10 shadow-xs" 
+                  style={{ 
+                    backgroundColor: selectedTeacherColor,
+                    color: contrastColors?.text || '#ffffff'
+                  }}
+                >
+                  {selectedTeacherColor}
+                </span>
+                <span className="text-gray-500">Warna kod guru dalam jadual</span>
+              </div>
+            )}
           </div>
 
           <div>
